@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A modern, open-source system monitoring and optimization tool for Windows",
   "main": "src/main/main.js",
-  "homepage": "https://github.com/yourusername/system-health-monitor",
+  "homepage": "https://labs.novasuite.one/projects/system-health-monitor",
   "scripts": {
     "build": "webpack --mode=production",
     "start": "concurrently \"npm run build\" \"electron .\"",
@@ -20,10 +20,9 @@
     "electron",
     "desktop-app"
   ],
-  "author": "Your Name",
-  "license": "MIT",
-  "build": {
-    "appId": "com.yourcompany.system-health-monitor",
+  "author": "xxavvTechnologies",
+  "license": "MIT",  "build": {
+    "appId": "com.novasuitelabs.system-health-monitor",
     "productName": "System Health Monitor",
     "directories": {
       "output": "release"
@@ -33,13 +32,20 @@
       "src/main/**/*",
       "node_modules/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "novasuitelabs",
+      "repo": "system-health-monitor"
+    },
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   },
   "type": "commonjs",
@@ -48,8 +54,7 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "chart.js": "^4.4.9",
-    "electron": "^36.3.2",
-    "electron-builder": "^26.0.12",
+    "electron-updater": "^6.6.2",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
@@ -57,7 +62,9 @@
     "typescript": "^5.8.3"
   },
   "devDependencies": {
+    "electron": "^36.3.2",
     "@types/chart.js": "^2.9.41",
+    "electron-builder": "^26.0.12",
     "concurrently": "^9.1.2",
     "css-loader": "^7.1.2",
     "html-webpack-plugin": "^5.6.3",

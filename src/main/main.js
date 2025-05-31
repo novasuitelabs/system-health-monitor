@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 const si = require('systeminformation');
@@ -41,7 +42,14 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  
+  // Initialize auto-updater (only in production)
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -52,6 +60,52 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+// Auto-updater events
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-checking');
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available.');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', info);
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available.');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-not-available', info);
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.log('Error in auto-updater. ' + err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-error', err.message);
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  console.log(log_message);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-download-progress', progressObj);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', info);
   }
 });
 
@@ -138,4 +192,48 @@ ipcMain.handle('get-startup-programs', async () => {
     console.error('Error getting startup programs:', error);
     return [];
   }
+});
+
+// Update-related IPC handlers
+ipcMain.handle('check-for-updates', async () => {
+  if (isDev) {
+    return { 
+      success: false, 
+      message: 'Updates are not available in development mode',
+      version: app.getVersion()
+    };
+  }
+  
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { 
+      success: true, 
+      message: 'Checking for updates...',
+      version: app.getVersion(),
+      updateInfo: result?.updateInfo || null
+    };
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      version: app.getVersion()
+    };
+  }
+});
+
+ipcMain.handle('restart-and-install-update', () => {
+  if (!isDev) {
+    autoUpdater.quitAndInstall();
+  } else {
+    return { success: false, message: 'Not available in development mode' };
+  }
+});
+
+ipcMain.handle('get-app-version', () => {
+  return {
+    version: app.getVersion(),
+    name: app.getName(),
+    isDev: isDev
+  };
 });

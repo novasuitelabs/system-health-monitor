@@ -67,10 +67,10 @@ const App: React.FC = () => {
   
   // Update-related state
   const [updateStatus, setUpdateStatus] = useState<string>('idle');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [downloadProgress, setDownloadProgress] = useState<any>(null);
   const [appVersion, setAppVersion] = useState<string>('1.0.0');
-  const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
 
   useEffect(() => {
     loadSystemData();
