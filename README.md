@@ -150,7 +150,7 @@ Found a bug? Please create an issue with:
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/novasuitelabs/system-health-monitor?tab=MIT-1-ov-file) file for details.
 
 ## 🙏 Acknowledgments
 
@@ -165,9 +165,9 @@ This application requires system-level access to monitor your computer. All data
 
 ## 📞 Support
 
-- 📧 Email: support@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/system-health-monitor/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/system-health-monitor/discussions)
+- 📧 Email: labs.ns@xxavvgroup.com
+- 🐛 Issues: [GitHub Issues](https://github.com/novasuitelabs/system-health-monitor/issues)
+- 💬 Discussions: [GitHub Discussions](https://github.com/novasuitelabs/system-health-monitor/discussions)
 
 ---
 
