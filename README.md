@@ -45,7 +45,7 @@ A modern, open-source system monitoring and optimization tool for Windows built 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/system-health-monitor.git
+   git clone https://github.com/novasuitelabs/system-health-monitor.git
    cd system-health-monitor
    ```
 
