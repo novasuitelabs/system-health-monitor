@@ -1,13 +1,13 @@
-#!/usr/bin/env pwsh
+# PowerShell script for signing release
 # Manual signing script for existing System Health Monitor release
-# Use this to sign your current v1.0.0 release
+# Use this to sign your current v1.1.0 release
 
 Write-Host "🔐 System Health Monitor - Manual Cosign Signing" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Green
 
 $releaseDir = "release"
 $executablePath = Join-Path $releaseDir "win-unpacked\System Health Monitor.exe"
-$installerPath = Join-Path $releaseDir "System Health Monitor Setup 1.0.0.exe"
+$installerPath = Join-Path $releaseDir "System Health Monitor Setup 1.1.0.exe"
 
 # Check if files exist
 if (-not (Test-Path $executablePath)) {

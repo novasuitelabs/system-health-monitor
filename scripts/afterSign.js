@@ -33,10 +33,9 @@ async function afterSign(context) {
       console.log('⏭️ Skipping signing in CI - implement service account signing if needed');
       return;
     }
-    
-    // Run the PowerShell signing script
+      // Run the PowerShell signing script
     console.log('✍️ Executing signing script...');
-    execSync(`pwsh -ExecutionPolicy Bypass -File "${signScript}" -FilePath "${executablePath}"`, {
+    execSync(`powershell.exe -ExecutionPolicy Bypass -File "${signScript}" -FilePath "${executablePath}"`, {
       stdio: 'inherit',
       cwd: process.cwd()
     });

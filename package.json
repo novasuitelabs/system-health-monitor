@@ -1,17 +1,17 @@
 {
   "name": "system-health-monitor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A modern, open-source system monitoring and optimization tool for Windows",
   "main": "src/main/main.js",
   "homepage": "https://labs.novasuite.one/projects/system-health-monitor",  "scripts": {
     "build": "webpack --mode=production",
     "start": "concurrently \"npm run build\" \"electron .\"",
     "dev": "concurrently \"webpack --mode=development --watch\" \"electron .\"",
-    "pack": "electron-builder --dir",
-    "dist": "npm run build && electron-builder",
+    "pack": "electron-builder --dir",    "dist": "npm run build && electron-builder",
     "dist:signed": "npm run build && electron-builder",
-    "sign-release": "pwsh -ExecutionPolicy Bypass -File sign-release.ps1",
-    "verify-signatures": "pwsh -ExecutionPolicy Bypass -File scripts/sign-with-cosign.ps1 -FilePath \"release/System Health Monitor Setup 1.0.0.exe\" -Verify",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "sign-release": "powershell.exe -ExecutionPolicy Bypass -File sign-release.ps1",
+    "verify-signatures": "powershell.exe -ExecutionPolicy Bypass -File scripts/sign-with-cosign.ps1 -FilePath \"release/System Health Monitor Setup 1.1.0.exe\" -Verify",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -39,9 +39,11 @@
       "owner": "novasuitelabs",
       "repo": "system-health-monitor"
     },
-    "afterSign": "scripts/afterSign.js",
-    "win": {
-      "target": "nsis",
+    "afterSign": "scripts/afterSign.js",    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {

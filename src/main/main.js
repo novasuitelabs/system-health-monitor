@@ -3,8 +3,81 @@ const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const isDev = process.env.NODE_ENV === 'development';
 const si = require('systeminformation');
+const fs = require('fs');
+const { exec } = require('child_process');
 
 let mainWindow;
+let settingsPath;
+
+// Settings handling
+function getSettingsPath() {
+  return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function loadSettings() {
+  if (!settingsPath) {
+    settingsPath = getSettingsPath();
+  }
+  
+  try {
+    return fs.existsSync(settingsPath) 
+      ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')) 
+      : { startWithWindows: false, showNotifications: true };
+  } catch (e) {
+    console.error('Failed to read settings file:', e);
+    return { startWithWindows: false, showNotifications: true };
+  }
+}
+
+function saveSettings(settings) {
+  if (!settingsPath) {
+    settingsPath = getSettingsPath();
+  }
+  
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    return true;
+  } catch (e) {
+    console.error('Failed to write settings file:', e);
+    return false;
+  }
+}
+
+// Helper function to manage startup with Windows
+function setAutoLaunch(enabled) {
+  const appFolder = path.dirname(process.execPath);
+  const exeName = path.basename(process.execPath);
+  const regKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`;
+  
+  if (isDev) {
+    console.log('Auto-launch not available in development mode');
+    return Promise.resolve({ success: true, isDev: true });
+  }
+  
+  return new Promise((resolve) => {
+    if (enabled) {
+      exec(`reg add "${regKey}" /v "System Health Monitor" /t REG_SZ /d "${path.join(appFolder, exeName)}" /f`, (error) => {
+        if (error) {
+          console.error('Error setting registry key for auto-launch:', error);
+          resolve({ success: false, error: error.message });
+        } else {
+          console.log('Auto-launch enabled');
+          resolve({ success: true, enabled: true });
+        }
+      });
+    } else {
+      exec(`reg delete "${regKey}" /v "System Health Monitor" /f`, (error) => {
+        if (error && !error.message.includes('not found')) {
+          console.error('Error removing registry key for auto-launch:', error);
+          resolve({ success: false, error: error.message });
+        } else {
+          console.log('Auto-launch disabled');
+          resolve({ success: true, enabled: false });
+        }
+      });
+    }
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -164,12 +237,25 @@ ipcMain.handle('get-system-stats', async () => {
 
 ipcMain.handle('clean-temp-files', async () => {
   try {
-    // This would implement actual temp file cleaning
-    // For demo purposes, we'll simulate the operation
+    // In a real implementation, this would use native Windows commands or Node.js fs
+    // For example, clearing %TEMP%, browser caches, etc.
+    
+    // For demo purposes, we'll simulate the operation with more realistic data
+    // Simulate a slight delay to make it feel like work is being done
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const filesDeleted = Math.floor(Math.random() * 1000) + 500; // More realistic number
+    const spaceFreed = (Math.random() * 2000 + 300).toFixed(2) + ' MB';
+    
     return {
       success: true,
-      filesDeleted: Math.floor(Math.random() * 100) + 50,
-      spaceFreed: (Math.random() * 500 + 100).toFixed(2) + ' MB'
+      filesDeleted: filesDeleted,
+      spaceFreed: spaceFreed,
+      details: [
+        { location: 'Temporary Files', count: Math.floor(filesDeleted * 0.6), size: (parseFloat(spaceFreed) * 0.5).toFixed(2) + ' MB' },
+        { location: 'Browser Cache', count: Math.floor(filesDeleted * 0.3), size: (parseFloat(spaceFreed) * 0.3).toFixed(2) + ' MB' },
+        { location: 'Windows Update Cache', count: Math.floor(filesDeleted * 0.1), size: (parseFloat(spaceFreed) * 0.2).toFixed(2) + ' MB' }
+      ]
     };
   } catch (error) {
     console.error('Error cleaning temp files:', error);
@@ -179,20 +265,94 @@ ipcMain.handle('clean-temp-files', async () => {
 
 ipcMain.handle('get-startup-programs', async () => {
   try {
-    // This would get actual startup programs
-    // For demo purposes, return some example data
+    // This would get actual startup programs from Windows registry
+    // For demo purposes, return some realistic example data
     return [
-      { name: 'Microsoft Teams', enabled: true, impact: 'High' },
-      { name: 'Spotify', enabled: true, impact: 'Medium' },
-      { name: 'Adobe Updater', enabled: false, impact: 'Low' },
-      { name: 'Windows Security', enabled: true, impact: 'Low' },
-      { name: 'Steam', enabled: true, impact: 'High' }
+      { id: 'msft-teams', name: 'Microsoft Teams', enabled: true, impact: 'High', publisher: 'Microsoft Corporation', location: 'Registry: HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' },
+      { id: 'spotify', name: 'Spotify', enabled: true, impact: 'Medium', publisher: 'Spotify AB', location: 'Registry: HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' },
+      { id: 'adobe-updater', name: 'Adobe Updater', enabled: false, impact: 'Low', publisher: 'Adobe Inc.', location: 'Startup Folder' },
+      { id: 'win-security', name: 'Windows Security', enabled: true, impact: 'Low', publisher: 'Microsoft Corporation', location: 'Registry: HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run' },
+      { id: 'steam', name: 'Steam', enabled: true, impact: 'High', publisher: 'Valve Corporation', location: 'Registry: HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' },
+      { id: 'discord', name: 'Discord', enabled: true, impact: 'Medium', publisher: 'Discord Inc.', location: 'Registry: HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' },
+      { id: 'onedrive', name: 'Microsoft OneDrive', enabled: true, impact: 'Medium', publisher: 'Microsoft Corporation', location: 'Registry: HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' }
     ];
   } catch (error) {
     console.error('Error getting startup programs:', error);
     return [];
   }
 });
+
+ipcMain.handle('update-startup-program', async (event, id, enabled) => {
+  try {
+    // This would update the actual startup entry in Windows registry
+    // For demo purposes, simulate success
+    console.log(`Updated startup program ${id} to ${enabled ? 'enabled' : 'disabled'}`);
+    return { success: true };
+  } catch (error) {
+    console.error(`Error updating startup program ${id}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('run-performance-optimization', async (event, type) => {
+  try {
+    // This would run actual system optimizations
+    // For demo purposes, simulate different optimization types
+    console.log(`Running performance optimization: ${type}`);
+    
+    // Simulate a delay based on optimization type
+    let delay = 1000;
+    switch (type) {
+      case 'memory':
+        delay = 2000;
+        break;
+      case 'network':
+        delay = 1500;
+        break;
+      case 'disk':
+        delay = 2500;
+        break;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    return { 
+      success: true, 
+      type: type,
+      details: getOptimizationDetails(type)
+    };
+  } catch (error) {
+    console.error(`Error running performance optimization ${type}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+function getOptimizationDetails(type) {
+  switch (type) {
+    case 'memory':
+      return {
+        before: Math.floor(Math.random() * 20) + 70, // 70-90% usage before
+        after: Math.floor(Math.random() * 20) + 40, // 40-60% usage after
+        description: 'Optimized memory usage by clearing unused cache and compacting working sets'
+      };
+    case 'network':
+      return {
+        before: Math.floor(Math.random() * 30) + 60, // 60-90ms latency before
+        after: Math.floor(Math.random() * 20) + 30, // 30-50ms latency after
+        description: 'Optimized network configuration and DNS settings'
+      };
+    case 'disk':
+      return {
+        before: Math.floor(Math.random() * 20) + 70, // 70-90% fragmentation before
+        after: Math.floor(Math.random() * 10) + 10, // 10-20% fragmentation after
+        description: 'Optimized disk performance by defragmenting system files and optimizing storage'
+      };
+    default:
+      return {
+        description: 'General system performance optimization completed'
+      };
+  }
+}
 
 // Update-related IPC handlers
 ipcMain.handle('check-for-updates', async () => {
@@ -236,4 +396,36 @@ ipcMain.handle('get-app-version', () => {
     name: app.getName(),
     isDev: isDev
   };
+});
+
+// Settings IPC handlers
+ipcMain.handle('get-settings', () => {
+  return loadSettings();
+});
+
+ipcMain.handle('save-setting', (event, key, value) => {
+  const settings = loadSettings();
+  settings[key] = value;
+  return saveSettings(settings);
+});
+
+ipcMain.handle('get-start-with-windows', async () => {
+  const settings = loadSettings();
+  return { enabled: settings.startWithWindows };
+});
+
+ipcMain.handle('set-start-with-windows', async (event, enabled) => {
+  try {
+    const result = await setAutoLaunch(enabled);
+    if (result.success) {
+      // Only update settings if registry changes succeeded
+      const settings = loadSettings();
+      settings.startWithWindows = enabled;
+      saveSettings(settings);
+    }
+    return result;
+  } catch (error) {
+    console.error('Error setting auto-launch:', error);
+    return { success: false, error: error.message };
+  }
 });

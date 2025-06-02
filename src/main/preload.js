@@ -5,6 +5,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSystemStats: () => ipcRenderer.invoke('get-system-stats'),
   cleanTempFiles: () => ipcRenderer.invoke('clean-temp-files'),
   getStartupPrograms: () => ipcRenderer.invoke('get-startup-programs'),
+  updateStartupProgram: (id, enabled) => ipcRenderer.invoke('update-startup-program', id, enabled),
+  runPerformanceOptimization: (type) => ipcRenderer.invoke('run-performance-optimization', type),
+  
+  // Settings-related functions
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSetting: (key, value) => ipcRenderer.invoke('save-setting', key, value),
+  getStartWithWindows: () => ipcRenderer.invoke('get-start-with-windows'),
+  setStartWithWindows: (enabled) => ipcRenderer.invoke('set-start-with-windows', enabled),
   
   // Update-related functions
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),

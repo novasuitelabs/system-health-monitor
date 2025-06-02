@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+# PowerShell script for cosign signing
 # Cosign signing script for System Health Monitor
 # This script signs the built executable using Sigstore/Cosign
 
@@ -15,7 +15,11 @@ Write-Host "🔐 Starting Cosign signing process..." -ForegroundColor Green
 # Check if Cosign is installed
 try {
     $cosignVersion = & cosign-windows-amd64 version 2>&1
-    Write-Host "✅ Cosign found: $($cosignVersion[0])" -ForegroundColor Green
+    if ($null -ne $cosignVersion) {
+        Write-Host "✅ Cosign found: $cosignVersion" -ForegroundColor Green
+    } else {
+        Write-Host "✅ Cosign found but version info unavailable" -ForegroundColor Green
+    }
 } catch {
     Write-Error "❌ Cosign not found. Please install it first with: winget install sigstore.cosign"
     exit 1

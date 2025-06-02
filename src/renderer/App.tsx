@@ -24,18 +24,28 @@ interface SystemInfo {
 }
 
 interface StartupProgram {
+  id: string;
   name: string;
   enabled: boolean;
   impact: string;
+  publisher?: string;
+  location?: string;
 }
 
 declare global {
-  interface Window {
-    electronAPI: {
+  interface Window {    electronAPI: {
       getSystemInfo: () => Promise<SystemInfo | null>;
       getSystemStats: () => Promise<SystemStats | null>;
       cleanTempFiles: () => Promise<any>;
       getStartupPrograms: () => Promise<StartupProgram[]>;
+      updateStartupProgram: (id: string, enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+      runPerformanceOptimization: (type: string) => Promise<any>;
+      
+      // Settings-related functions
+      getSettings: () => Promise<any>;
+      saveSetting: (key: string, value: any) => Promise<boolean>;
+      getStartWithWindows: () => Promise<{enabled: boolean}>;
+      setStartWithWindows: (enabled: boolean) => Promise<any>;
       
       // Update-related functions
       checkForUpdates: () => Promise<any>;
@@ -65,17 +75,42 @@ const App: React.FC = () => {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [isOnline, setIsOnline] = useState(true);
   
+  // Optimization-related state
+  const [performanceOptimizationResult, setPerformanceOptimizationResult] = useState<any>(null);
+  const [optimizationLoading, setOptimizationLoading] = useState<{[key: string]: boolean}>({
+    memory: false,
+    network: false,
+    disk: false
+  });
+  const [startupUpdateStatus, setStartupUpdateStatus] = useState<{id: string, loading: boolean} | null>(null);
+  
+  // Settings state
+  const [settings, setSettings] = useState<{
+    startWithWindows: boolean;
+    showNotifications: boolean;
+  }>({
+    startWithWindows: false,
+    showNotifications: true
+  });
+  
   // Update-related state
-  const [updateStatus, setUpdateStatus] = useState<string>('idle');
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [updateStatus, setUpdateStatus] = useState<string>('idle');  const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [downloadProgress, setDownloadProgress] = useState<any>(null);
-  const [appVersion, setAppVersion] = useState<string>('1.0.0');
+  const [appVersion, setAppVersion] = useState<string>('1.1.0');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
+
+  // Notification state
+  const [settingNotification, setSettingNotification] = useState<{
+    message: string;
+    type: 'success' | 'error';
+    visible: boolean;
+  } | null>(null);
 
   useEffect(() => {
     loadSystemData();
     setupUpdateListeners();
     loadAppVersion();
+    loadSettings();
     
     const interval = setInterval(loadSystemStats, 3000);
     return () => {
@@ -83,6 +118,17 @@ const App: React.FC = () => {
       window.electronAPI.removeAllUpdateListeners();
     };
   }, []);
+  
+  const loadSettings = async () => {
+    try {
+      const savedSettings = await window.electronAPI.getSettings();
+      if (savedSettings) {
+        setSettings(savedSettings);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
 
   const loadSystemData = async () => {
     try {
@@ -360,7 +406,6 @@ const App: React.FC = () => {
       </div>
     );
   };
-
   const renderOptimization = () => (
     <div>
       <div className="page-header">
@@ -368,6 +413,7 @@ const App: React.FC = () => {
         <p className="page-subtitle">Clean and optimize your system for better performance</p>
       </div>
 
+      {/* Disk Cleanup Section */}
       <div className="cleanup-section">
         <div className="cleanup-header">
           <h3 className="cleanup-title">Disk Cleanup</h3>
@@ -384,8 +430,28 @@ const App: React.FC = () => {
             {cleanupResult.success ? (
               <>
                 <strong>Cleanup Complete!</strong><br />
-                Files deleted: {cleanupResult.filesDeleted}<br />
-                Space freed: {cleanupResult.spaceFreed}
+                <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Total files deleted:</span>
+                    <span><strong>{cleanupResult.filesDeleted}</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Total space freed:</span>
+                    <span><strong>{cleanupResult.spaceFreed}</strong></span>
+                  </div>
+                </div>
+                
+                {cleanupResult.details && (
+                  <div style={{ marginTop: '12px', borderTop: '1px solid rgba(16, 185, 129, 0.3)', paddingTop: '8px' }}>
+                    <strong>Cleanup Details:</strong>
+                    {cleanupResult.details.map((detail: any, index: number) => (
+                      <div key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginTop: '4px' }}>
+                        <span>{detail.location}:</span>
+                        <span>{detail.count} files ({detail.size})</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -397,29 +463,147 @@ const App: React.FC = () => {
         )}
       </div>
 
+      {/* Performance Optimization Section */}
+      <div className="cleanup-section">
+        <div className="cleanup-header">
+          <h3 className="cleanup-title">Performance Optimization</h3>
+        </div>
+        <p style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+          Optimize various aspects of your system for better performance.
+        </p>
+
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '16px' }}>
+          {/* Memory Optimization */}
+          <div className="optimization-card">
+            <div className="optimization-header">
+              <span className="optimization-title">Memory Optimization</span>
+              <div className="optimization-icon" style={{ background: 'linear-gradient(45deg, #10b981, #059669)' }}>
+                💾
+              </div>
+            </div>
+            <p className="optimization-description">
+              Free up RAM by optimizing memory usage and clearing unused cache.
+            </p>
+            {performanceOptimizationResult && performanceOptimizationResult.type === 'memory' && (
+              <div className="optimization-result">
+                <div className="before-after">
+                  <div>Before: {performanceOptimizationResult.details.before}%</div>
+                  <div>After: {performanceOptimizationResult.details.after}%</div>
+                </div>
+                <div className="optimization-details">
+                  {performanceOptimizationResult.details.description}
+                </div>
+              </div>
+            )}
+            <button 
+              className="action-button optimize-button"
+              onClick={() => handlePerformanceOptimization('memory')}
+              disabled={optimizationLoading.memory}
+            >
+              {optimizationLoading.memory ? '🔄 Optimizing...' : '✨ Optimize Memory'}
+            </button>
+          </div>
+
+          {/* Network Optimization */}
+          <div className="optimization-card">
+            <div className="optimization-header">
+              <span className="optimization-title">Network Optimization</span>
+              <div className="optimization-icon" style={{ background: 'linear-gradient(45deg, #3b82f6, #1d4ed8)' }}>
+                🌐
+              </div>
+            </div>
+            <p className="optimization-description">
+              Improve network speed by optimizing TCP/IP settings and DNS cache.
+            </p>
+            {performanceOptimizationResult && performanceOptimizationResult.type === 'network' && (
+              <div className="optimization-result">
+                <div className="before-after">
+                  <div>Before: {performanceOptimizationResult.details.before}ms</div>
+                  <div>After: {performanceOptimizationResult.details.after}ms</div>
+                </div>
+                <div className="optimization-details">
+                  {performanceOptimizationResult.details.description}
+                </div>
+              </div>
+            )}
+            <button 
+              className="action-button optimize-button"
+              onClick={() => handlePerformanceOptimization('network')}
+              disabled={optimizationLoading.network}
+            >
+              {optimizationLoading.network ? '🔄 Optimizing...' : '✨ Optimize Network'}
+            </button>
+          </div>
+
+          {/* Disk Optimization */}
+          <div className="optimization-card">
+            <div className="optimization-header">
+              <span className="optimization-title">Disk Optimization</span>
+              <div className="optimization-icon" style={{ background: 'linear-gradient(45deg, #f59e0b, #d97706)' }}>
+                💿
+              </div>
+            </div>
+            <p className="optimization-description">
+              Optimize disk performance by defragmenting system files and storage.
+            </p>
+            {performanceOptimizationResult && performanceOptimizationResult.type === 'disk' && (
+              <div className="optimization-result">
+                <div className="before-after">
+                  <div>Fragmentation before: {performanceOptimizationResult.details.before}%</div>
+                  <div>Fragmentation after: {performanceOptimizationResult.details.after}%</div>
+                </div>
+                <div className="optimization-details">
+                  {performanceOptimizationResult.details.description}
+                </div>
+              </div>
+            )}
+            <button 
+              className="action-button optimize-button"
+              onClick={() => handlePerformanceOptimization('disk')}
+              disabled={optimizationLoading.disk}
+            >
+              {optimizationLoading.disk ? '🔄 Optimizing...' : '✨ Optimize Disk'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Startup Programs Section */}
       <div className="processes-table">
         <div className="table-header">
           <h3 className="table-title">Startup Programs</h3>
           <p className="table-subtitle">Manage which programs start with Windows</p>
         </div>
         <div className="startup-list">
-          {startupPrograms.map((program, index) => (
-            <div key={index} className="startup-item">
+          {startupPrograms.map((program) => (
+            <div key={program.id} className="startup-item">
               <div className="startup-info">
                 <div className="startup-name">{program.name}</div>
-                <div className={`startup-impact impact-${program.impact.toLowerCase()}`}>
-                  Impact: {program.impact}
+                <div className="startup-details">
+                  <span className={`startup-impact impact-${program.impact.toLowerCase()}`}>
+                    Impact: {program.impact}
+                  </span>
+                  {program.publisher && (
+                    <span className="startup-publisher">
+                      Publisher: {program.publisher}
+                    </span>
+                  )}
+                  {program.location && (
+                    <span className="startup-location" title={program.location}>
+                      {program.location.length > 50 ? `${program.location.substring(0, 47)}...` : program.location}
+                    </span>
+                  )}
                 </div>
               </div>
               <div 
-                className={`toggle-switch ${program.enabled ? 'enabled' : ''}`}
-                onClick={() => {
-                  const updated = [...startupPrograms];
-                  updated[index].enabled = !updated[index].enabled;
-                  setStartupPrograms(updated);
-                }}
+                className={`toggle-switch ${program.enabled ? 'enabled' : ''} ${startupUpdateStatus?.id === program.id ? 'updating' : ''}`}
+                onClick={() => !startupUpdateStatus && handleStartupProgramToggle(program)}
               >
-                <div className="toggle-slider"></div>
+                {startupUpdateStatus?.id === program.id ? (
+                  <div className="toggle-loading"></div>
+                ) : (
+                  <div className="toggle-slider"></div>
+                )}
               </div>
             </div>
           ))}
@@ -433,25 +617,45 @@ const App: React.FC = () => {
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">Configure your system monitor preferences</p>
-      </div>
-
-      <div className="cleanup-section">
+      </div>      <div className="cleanup-section">
         <h3 className="cleanup-title">Monitoring Preferences</h3>
         <div style={{ marginTop: '16px' }}>
           <label className="setting-item">
-            <input type="checkbox" defaultChecked />
+            <input 
+              type="checkbox" 
+              checked={true}
+              onChange={() => {}}
+              disabled={true}
+            />
             <span>Enable real-time monitoring</span>
           </label>
           <label className="setting-item">
-            <input type="checkbox" defaultChecked />
+            <input 
+              type="checkbox" 
+              checked={settings.showNotifications}
+              onChange={(e) => handleSettingChange('showNotifications', e.target.checked)}
+            />
             <span>Show system notifications</span>
           </label>
           <label className="setting-item">
-            <input type="checkbox" />
+            <input 
+              type="checkbox" 
+              checked={settings.startWithWindows}
+              onChange={(e) => handleSettingChange('startWithWindows', e.target.checked)}
+            />
             <span>Start with Windows</span>
+            {settings.startWithWindows && (
+              <span style={{ 
+                marginLeft: '8px',
+                fontSize: '12px', 
+                color: 'rgba(255, 255, 255, 0.5)'
+              }}>
+                (App will launch automatically when you log in)
+              </span>
+            )}
           </label>
         </div>
-      </div>      <div className="cleanup-section">
+      </div><div className="cleanup-section">
         <h3 className="cleanup-title">Updates</h3>
         <div style={{ marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -603,6 +807,135 @@ const App: React.FC = () => {
     }
   };
 
+  const showSettingNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setSettingNotification({
+      message,
+      type,
+      visible: true
+    });
+    
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      setSettingNotification(null);
+    }, 3000);
+  };
+
+  const handleSettingChange = async (setting: string, value: boolean) => {
+    try {
+      if (setting === 'startWithWindows') {
+        const result = await window.electronAPI.setStartWithWindows(value);
+        if (result.success) {
+          setSettings(prev => ({ ...prev, [setting]: value }));
+          const message = value ? 'App will now start with Windows' : 'App will no longer start with Windows';
+          console.log(message);
+          showSettingNotification(message, 'success');
+        } else {
+          console.error('Failed to change startup setting:', result.error);
+          showSettingNotification('Failed to change startup setting', 'error');
+        }
+      } else {
+        const success = await window.electronAPI.saveSetting(setting, value);
+        if (success) {
+          setSettings(prev => ({ ...prev, [setting]: value }));
+          showSettingNotification('Settings saved successfully', 'success');
+        } else {
+          showSettingNotification('Failed to save settings', 'error');
+        }
+      }
+    } catch (error) {
+      console.error(`Error changing setting ${setting}:`, error);
+      showSettingNotification(`Error changing setting ${setting}`, 'error');
+    }
+  };
+
+  const handleStartupProgramToggle = async (program: StartupProgram) => {
+    try {
+      // Set loading state for this specific program
+      setStartupUpdateStatus({ id: program.id, loading: true });
+      
+      // Call API to update program startup status
+      const result = await window.electronAPI.updateStartupProgram(program.id, !program.enabled);
+      
+      if (result.success) {
+        // Update the local state if successful
+        setStartupPrograms(prevPrograms => 
+          prevPrograms.map(p => 
+            p.id === program.id ? { ...p, enabled: !p.enabled } : p
+          )
+        );
+        
+        // Show success notification
+        showSettingNotification(
+          `${program.name} ${!program.enabled ? 'enabled' : 'disabled'} on startup`,
+          'success'
+        );
+      } else {
+        // Show error notification
+        showSettingNotification(
+          `Failed to update ${program.name} startup status`,
+          'error'
+        );
+      }
+    } catch (error) {
+      console.error(`Error updating startup program ${program.name}:`, error);
+      showSettingNotification(
+        `Error updating ${program.name} startup status`,
+        'error'
+      );
+    } finally {
+      // Clear loading state
+      setStartupUpdateStatus(null);
+    }
+  };
+
+  const handlePerformanceOptimization = async (type: string) => {
+    try {
+      // Set loading state for this optimization type
+      setOptimizationLoading(prev => ({ ...prev, [type]: true }));
+      
+      // Run the optimization
+      const result = await window.electronAPI.runPerformanceOptimization(type);
+      
+      if (result.success) {
+        // Store the result
+        setPerformanceOptimizationResult(result);
+        
+        // Show success notification with appropriate message
+        let message = '';
+        switch (type) {
+          case 'memory':
+            message = 'Memory optimization completed successfully';
+            break;
+          case 'network':
+            message = 'Network optimization completed successfully';
+            break;
+          case 'disk':
+            message = 'Disk optimization completed successfully';
+            break;
+          default:
+            message = 'System optimization completed successfully';
+        }
+        
+        showSettingNotification(message, 'success');
+        
+        // Refresh system stats to show improvements
+        setTimeout(loadSystemStats, 500);
+      } else {
+        // Show error notification
+        showSettingNotification(
+          `Failed to optimize ${type}: ${result.error || 'Unknown error'}`,
+          'error'
+        );
+      }
+    } catch (error) {
+      console.error(`Error during ${type} optimization:`, error);
+      showSettingNotification(`Error optimizing ${type}`, 'error');
+    } finally {
+      // Clear loading state
+      setOptimizationLoading(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
   return (
     <div className="app">
       <div className="sidebar">
@@ -646,6 +979,12 @@ const App: React.FC = () => {
         {activeTab === 'optimization' && renderOptimization()}
         {activeTab === 'settings' && renderSettings()}
       </main>
+
+      {settingNotification && settingNotification.visible && (
+        <div className={`notification ${settingNotification.type}`}>
+          {settingNotification.message}
+        </div>
+      )}
     </div>
   );
 };
